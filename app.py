@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
@@ -17,16 +17,16 @@ from sklearn.metrics import accuracy_score
 # ---------------------------------------------------------
 
 st.set_page_config(
-    page_title="Similar Cases Demo",
+    page_title="Similar Cases + Decision Tree Demo",
     layout="wide"
 )
 
-st.title("Similar Cases Demo")
+st.title("Similar Cases + Decision Tree Demo")
 st.write(
     "This app demonstrates an example-based explanation approach using the "
-    "Breast Cancer Wisconsin dataset. Instead of explaining a prediction with "
-    "SHAP or LIME, the app shows training cases that are most similar to the "
-    "selected test case."
+    "Breast Cancer Wisconsin dataset. A Decision Tree classifier is trained, "
+    "and the app shows both the tree structure and the most similar training cases "
+    "to a selected test case."
 )
 
 
@@ -49,9 +49,7 @@ df["target_name"] = df["target"].map({
     1: target_names[1]
 })
 
-
 st.subheader("Dataset information")
-
 st.write(f"Number of samples: **{X.shape[0]}**")
 st.write(f"Number of features: **{X.shape[1]}**")
 st.write(f"Target classes: **0 = {target_names[0]}**, **1 = {target_names[1]}**")
@@ -74,11 +72,41 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 
 # ---------------------------------------------------------
+# Model settings
+# ---------------------------------------------------------
+
+st.subheader("Decision Tree settings")
+
+max_depth = st.slider(
+    "Choose the maximum depth of the tree",
+    min_value=1,
+    max_value=6,
+    value=3
+)
+
+min_samples_split = st.slider(
+    "Choose the minimum number of samples required to split",
+    min_value=2,
+    max_value=20,
+    value=5
+)
+
+min_samples_leaf = st.slider(
+    "Choose the minimum number of samples in a leaf",
+    min_value=1,
+    max_value=10,
+    value=2
+)
+
+
+# ---------------------------------------------------------
 # Train model
 # ---------------------------------------------------------
 
-model = RandomForestClassifier(
-    n_estimators=200,
+model = DecisionTreeClassifier(
+    max_depth=max_depth,
+    min_samples_split=min_samples_split,
+    min_samples_leaf=min_samples_leaf,
     random_state=42,
     class_weight="balanced"
 )
@@ -88,11 +116,35 @@ model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
 
-
 st.subheader("Model")
-
-st.write("Model used: **Random Forest Classifier**")
+st.write("Model used: **Decision Tree Classifier**")
 st.write(f"Test accuracy: **{accuracy:.3f}**")
+
+
+# ---------------------------------------------------------
+# Draw tree
+# ---------------------------------------------------------
+
+st.header("Decision Tree")
+
+st.write(
+    "This figure shows the structure of the trained decision tree. "
+    "Each node contains a decision rule, the class distribution, and the predicted class."
+)
+
+fig_tree, ax_tree = plt.subplots(figsize=(22, 12))
+
+plot_tree(
+    model,
+    feature_names=feature_names,
+    class_names=target_names,
+    filled=True,
+    rounded=True,
+    fontsize=8,
+    ax=ax_tree
+)
+
+st.pyplot(fig_tree)
 
 
 # ---------------------------------------------------------
@@ -125,7 +177,6 @@ selected_case = X_test_display.iloc[[case_index]]
 selected_case_scaled = X_test_scaled[case_index].reshape(1, -1)
 
 true_class = y_test_display.iloc[case_index]
-
 predicted_class = model.predict(selected_case)[0]
 predicted_probabilities = model.predict_proba(selected_case)[0]
 
@@ -139,7 +190,6 @@ prob_df = pd.DataFrame({
 
 st.write("Predicted probabilities:")
 st.dataframe(prob_df)
-
 
 with st.expander("View selected case values"):
     selected_case_display = selected_case.copy()
@@ -190,9 +240,7 @@ similar_cases["distance_to_selected_case"] = distances[0]
 
 similar_cases = similar_cases.reset_index(drop=True)
 
-
 st.subheader("Most similar training cases")
-
 st.dataframe(similar_cases)
 
 
@@ -226,7 +274,6 @@ st.write(
     "The similarity calculation above is performed using all standardised features."
 )
 
-# Combine train and selected case for a common PCA projection
 combined_scaled = np.vstack([X_train_scaled, selected_case_scaled])
 
 pca = PCA(n_components=2, random_state=42)
@@ -240,10 +287,8 @@ similar_cases_pca = X_train_pca[similar_indices]
 
 fig, ax = plt.subplots(figsize=(8, 6))
 
-# Plot all training cases
 for class_value in sorted(y_train.unique()):
     class_mask = y_train.values == class_value
-
     ax.scatter(
         X_train_pca[class_mask, 0],
         X_train_pca[class_mask, 1],
@@ -251,7 +296,6 @@ for class_value in sorted(y_train.unique()):
         label=f"Training class {class_value} — {target_names[class_value]}"
     )
 
-# Plot similar cases
 ax.scatter(
     similar_cases_pca[:, 0],
     similar_cases_pca[:, 1],
@@ -262,7 +306,6 @@ ax.scatter(
     label="Similar cases"
 )
 
-# Plot selected case
 ax.scatter(
     selected_case_pca[0],
     selected_case_pca[1],
@@ -283,38 +326,47 @@ st.pyplot(fig)
 
 
 # ---------------------------------------------------------
+# Feature importance
+# ---------------------------------------------------------
+
+st.header("Feature importance from the decision tree")
+
+importance_df = pd.DataFrame({
+    "Feature": feature_names,
+    "Importance": model.feature_importances_
+}).sort_values(by="Importance", ascending=False)
+
+st.dataframe(importance_df)
+
+top_importance_df = importance_df.head(10)
+
+fig_imp, ax_imp = plt.subplots(figsize=(8, 5))
+ax_imp.barh(top_importance_df["Feature"][::-1], top_importance_df["Importance"][::-1])
+ax_imp.set_xlabel("Importance")
+ax_imp.set_title("Top 10 feature importances")
+st.pyplot(fig_imp)
+
+
+# ---------------------------------------------------------
 # Interpretation notes
 # ---------------------------------------------------------
 
 st.header("Interpretation notes")
 
 st.info(
-    "Similar cases explanations are intuitive, but they depend strongly on how "
-    "similarity is defined. Here, similarity is based on Euclidean distance after "
-    "standardising all features. This does not prove clinical equivalence or causality."
+    "A decision tree is easier to interpret than a random forest because each prediction "
+    "follows a visible sequence of rules. Similar cases explanations are intuitive, but they "
+    "depend strongly on how similarity is defined. Here, similarity is based on Euclidean "
+    "distance after standardising all features. This does not prove clinical equivalence or causality."
 )
 
 st.markdown(
     """
     **Key idea**
 
-    Instead of asking only “Which features influenced the model?”, this approach asks:
+    This app combines two types of interpretability:
 
-    **“Which previous cases look most similar to this case?”**
-
-    This can be useful in teaching because students can inspect concrete examples
-    rather than only abstract feature contributions.
-    """
-)
-
-st.markdown(
-    """
-    **Scientific references**
-
-    Aamodt, Agnar, and Enric Plaza (1994). “Case-Based Reasoning: Foundational Issues, Methodological Variations, and System Approaches.” *AI Communications*, 7(1), 39–59.
-
-    Kim, Been, Cynthia Rudin, and Julie Shah (2014). “The Bayesian Case Model: A Generative Approach for Case-Based Reasoning and Prototype Classification.” *Advances in Neural Information Processing Systems*, 27.
-
-    Caruana, Rich, Hooshang Kangarloo, John David Dionisio, Usha Sinha, and David Johnson (1999). “Case-Based Explanation of Non-Case-Based Learning Methods.” *Proceedings of the AMIA Symposium*, 212–215.
+    1. **Rule-based interpretation** through the decision tree structure  
+    2. **Example-based interpretation** through similar cases
     """
 )
