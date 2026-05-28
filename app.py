@@ -22,6 +22,7 @@ st.set_page_config(
 )
 
 st.title("Similar Cases + Decision Tree Demo")
+
 st.write(
     "This app demonstrates an example-based explanation approach using the "
     "Breast Cancer Wisconsin dataset. A Decision Tree classifier is trained, "
@@ -49,7 +50,9 @@ df["target_name"] = df["target"].map({
     1: target_names[1]
 })
 
+
 st.subheader("Dataset information")
+
 st.write(f"Number of samples: **{X.shape[0]}**")
 st.write(f"Number of features: **{X.shape[1]}**")
 st.write(f"Target classes: **0 = {target_names[0]}**, **1 = {target_names[1]}**")
@@ -72,7 +75,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 
 # ---------------------------------------------------------
-# Model settings
+# Decision Tree settings
 # ---------------------------------------------------------
 
 st.subheader("Decision Tree settings")
@@ -100,7 +103,7 @@ min_samples_leaf = st.slider(
 
 
 # ---------------------------------------------------------
-# Train model
+# Train Decision Tree model
 # ---------------------------------------------------------
 
 model = DecisionTreeClassifier(
@@ -116,33 +119,55 @@ model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
 
+
 st.subheader("Model")
+
 st.write("Model used: **Decision Tree Classifier**")
 st.write(f"Test accuracy: **{accuracy:.3f}**")
 
 
 # ---------------------------------------------------------
-# Draw tree
+# Draw Decision Tree with custom colours
 # ---------------------------------------------------------
 
 st.header("Decision Tree")
 
 st.write(
     "This figure shows the structure of the trained decision tree. "
-    "Each node contains a decision rule, the class distribution, and the predicted class."
+    "Malignant nodes are shown in red and benign nodes are shown in green."
 )
 
-fig_tree, ax_tree = plt.subplots(figsize=(22, 12))
+fig_tree, ax_tree = plt.subplots(figsize=(24, 12))
 
-plot_tree(
+artists = plot_tree(
     model,
     feature_names=feature_names,
     class_names=target_names,
-    filled=True,
+    filled=False,
     rounded=True,
     fontsize=8,
     ax=ax_tree
 )
+
+# Custom node colours:
+# malignant -> red
+# benign -> green
+for artist in artists:
+    text = artist.get_text()
+    bbox = artist.get_bbox_patch()
+
+    if bbox is not None:
+        if "class = malignant" in text:
+            bbox.set_facecolor("#f4a6a6")  # light red
+        elif "class = benign" in text:
+            bbox.set_facecolor("#b7e4c7")  # light green
+        else:
+            bbox.set_facecolor("#eeeeee")
+
+        bbox.set_edgecolor("black")
+        bbox.set_alpha(0.95)
+
+ax_tree.set_title("Decision Tree: malignant = red, benign = green", fontsize=16)
 
 st.pyplot(fig_tree)
 
@@ -161,7 +186,7 @@ X_test_scaled = scaler.transform(X_test)
 # Select case
 # ---------------------------------------------------------
 
-st.subheader("Select a case to analyse")
+st.header("Select a case to analyse")
 
 X_test_display = X_test.reset_index(drop=True)
 y_test_display = y_test.reset_index(drop=True)
@@ -177,8 +202,10 @@ selected_case = X_test_display.iloc[[case_index]]
 selected_case_scaled = X_test_scaled[case_index].reshape(1, -1)
 
 true_class = y_test_display.iloc[case_index]
+
 predicted_class = model.predict(selected_case)[0]
 predicted_probabilities = model.predict_proba(selected_case)[0]
+
 
 st.write(f"True class: **{true_class} — {target_names[true_class]}**")
 st.write(f"Predicted class: **{predicted_class} — {target_names[predicted_class]}**")
@@ -240,7 +267,9 @@ similar_cases["distance_to_selected_case"] = distances[0]
 
 similar_cases = similar_cases.reset_index(drop=True)
 
+
 st.subheader("Most similar training cases")
+
 st.dataframe(similar_cases)
 
 
@@ -289,11 +318,17 @@ fig, ax = plt.subplots(figsize=(8, 6))
 
 for class_value in sorted(y_train.unique()):
     class_mask = y_train.values == class_value
+
+    if target_names[class_value] == "malignant":
+        label = "Training class 0 — malignant"
+    else:
+        label = "Training class 1 — benign"
+
     ax.scatter(
         X_train_pca[class_mask, 0],
         X_train_pca[class_mask, 1],
         alpha=0.25,
-        label=f"Training class {class_value} — {target_names[class_value]}"
+        label=label
     )
 
 ax.scatter(
@@ -341,9 +376,15 @@ st.dataframe(importance_df)
 top_importance_df = importance_df.head(10)
 
 fig_imp, ax_imp = plt.subplots(figsize=(8, 5))
-ax_imp.barh(top_importance_df["Feature"][::-1], top_importance_df["Importance"][::-1])
+
+ax_imp.barh(
+    top_importance_df["Feature"][::-1],
+    top_importance_df["Importance"][::-1]
+)
+
 ax_imp.set_xlabel("Importance")
 ax_imp.set_title("Top 10 feature importances")
+
 st.pyplot(fig_imp)
 
 
@@ -368,5 +409,22 @@ st.markdown(
 
     1. **Rule-based interpretation** through the decision tree structure  
     2. **Example-based interpretation** through similar cases
+
+    **Important caution**
+
+    The tree and the similar cases explain the behaviour of the model and the dataset representation.
+    They should not be interpreted as direct clinical evidence or causal explanation.
+    """
+)
+
+st.markdown(
+    """
+    **Scientific references**
+
+    Aamodt, Agnar, and Enric Plaza (1994). “Case-Based Reasoning: Foundational Issues, Methodological Variations, and System Approaches.” *AI Communications*, 7(1), 39–59.
+
+    Breiman, Leo, Jerome H. Friedman, Richard A. Olshen, and Charles J. Stone (1984). *Classification and Regression Trees*. Belmont, CA: Wadsworth.
+
+    Kim, Been, Cynthia Rudin, and Julie Shah (2014). “The Bayesian Case Model: A Generative Approach for Case-Based Reasoning and Prototype Classification.” *Advances in Neural Information Processing Systems*, 27.
     """
 )
