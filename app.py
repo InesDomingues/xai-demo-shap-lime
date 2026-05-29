@@ -394,13 +394,6 @@ st.pyplot(fig_imp)
 
 st.header("Interpretation notes")
 
-st.info(
-    "A decision tree is easier to interpret than a random forest because each prediction "
-    "follows a visible sequence of rules. Similar cases explanations are intuitive, but they "
-    "depend strongly on how similarity is defined. Here, similarity is based on Euclidean "
-    "distance after standardising all features. This does not prove clinical equivalence or causality."
-)
-
 st.markdown(
     """
     **Key idea**
@@ -414,17 +407,5 @@ st.markdown(
 
     The tree and the similar cases explain the behaviour of the model and the dataset representation.
     They should not be interpreted as direct clinical evidence or causal explanation.
-    """
-)
-
-st.markdown(
-    """
-    **Scientific references**
-
-    Aamodt, Agnar, and Enric Plaza (1994). “Case-Based Reasoning: Foundational Issues, Methodological Variations, and System Approaches.” *AI Communications*, 7(1), 39–59.
-
-    Breiman, Leo, Jerome H. Friedman, Richard A. Olshen, and Charles J. Stone (1984). *Classification and Regression Trees*. Belmont, CA: Wadsworth.
-
-    Kim, Been, Cynthia Rudin, and Julie Shah (2014). “The Bayesian Case Model: A Generative Approach for Case-Based Reasoning and Prototype Classification.” *Advances in Neural Information Processing Systems*, 27.
     """
 )
