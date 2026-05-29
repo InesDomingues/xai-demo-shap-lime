@@ -94,10 +94,3 @@ They should not be interpreted as direct clinical evidence.
 They do not prove clinical causality.
 
 Similar cases are mathematically similar according to the chosen distance metric, but this does not necessarily mean they are clinically equivalent.
-
-## How to run locally
-
-Install the required packages:
-
-```bash
-pip install -r requirements.txt
